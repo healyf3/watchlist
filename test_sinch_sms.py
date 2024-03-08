@@ -6,9 +6,9 @@ sinch_client = Client(
     project_id="502c300f-443c-4b85-a7e5-24f8d6e6fb97"
 )
 
-for i in range(100):
+for i in range(5):
     send_batch_response = sinch_client.sms.batches.send(
-        body="trade alert! " + str(i),
+        body="healy max red candle alert! " + str(i),
         to=["+19014830859"],
         from_="+12085812142",
         delivery_report="none"
