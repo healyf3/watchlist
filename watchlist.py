@@ -57,7 +57,7 @@ pass
 # If you want to subscribe to all tickers, place an asterisk in place of the symbol. ["T.*"]
 
 ws_crypto = WebSocketClient(api_key=polygon_api_key, market=Market.Crypto)
-ws_crypto.subscribe("XA.BTC-USD")
+ws_crypto.subscribe("XT.BTC-USD")
 
 ws_stocks = WebSocketClient(api_key=polygon_api_key, market=Market.Stocks)
 ws_stocks.subscribe("T.*")

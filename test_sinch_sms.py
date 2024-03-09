@@ -1,3 +1,4 @@
+#!/home/ec2-user/.local/share/virtualenvs/watchlist-dO_9O89D/bin/python3
 from sinch import Client
 
 sinch_client = Client(
