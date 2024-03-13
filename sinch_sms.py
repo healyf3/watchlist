@@ -15,7 +15,7 @@ sinch_client = Client(
 #         delivery_report="none"
 #     )
 
-def send_sms_alert(ticker, price, fundamentals, alert_category):
+def send_sms_alert(alert_category, ticker, price, fundamentals=None):
     send_batch_response = sinch_client.sms.batches.send(
         body="healy's alert:" "\n" + alert_category + "\n" + ticker + "\n" + str(price),
         to=["+19014830859"],
