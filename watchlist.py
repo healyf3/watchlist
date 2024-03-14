@@ -16,13 +16,14 @@ import sinch_sms
 
 config_object = ConfigParser()
 config_object.read("config.ini")
+ALERTS_ENABLED = config_object['main']['ALERTS_ENABLED']
 
 watchlist_msg_queue = []
 
 MARKET_CAP_LIMIT = 800000000
-PRICE_UPPER_BOUND= 50
-PRICE_LOWER_BOUND= 0.08
-TRADE_MINUTE_LIQUIDITY_LOWER_BOUND = 20
+PRICE_UPPER_BOUND = 17
+PRICE_LOWER_BOUND = 0.12
+TRADE_MINUTE_LIQUIDITY_LOWER_BOUND = 100
 stock_tickers_df = util.get_ticker_df('stocks', price_lower_bound=PRICE_LOWER_BOUND, price_upper_bound=PRICE_UPPER_BOUND, market_cap_limit=MARKET_CAP_LIMIT)
 crypto_tickers_df = util.get_ticker_df('crypto', market_cap_limit=MARKET_CAP_LIMIT)
 
@@ -35,14 +36,15 @@ crypto_minute_agg_df = pd.DataFrame(columns=['ticker', 'price', 'accumulated vol
 
 def service_enqueued_alerts():
     global watchlist_msg_queue
-    for alert in watchlist_msg_queue:
-        sinch_sms.send_sms_alert(alert['category'], alert['symbol'], alert['price'])
+    if ALERTS_ENABLED == 'True':
+        for alert in watchlist_msg_queue:
+            sinch_sms.send_sms_alert(alert['category'], alert['symbol'], alert['price'])
 
     watchlist_msg_queue = []
 
 def ws_handle_msg(msg: List[WebSocketMessage]):
     for m in msg:
-        util.dbg_print(m)
+        util.log_print(m)
         if m.event_type == 'T':
             if not (stock_trades_df == m.symbol).any().any():
                 stock_trades_df.loc[len(stock_trades_df.index)] = [m.symbol, 1]
@@ -81,32 +83,40 @@ def ws_handle_msg(msg: List[WebSocketMessage]):
 
 
                 if stock_minute_agg_df.loc[minute_agg_df_index, 'trades in minute'].values[0] > TRADE_MINUTE_LIQUIDITY_LOWER_BOUND:
-                    if stock_minute_agg_df.loc[minute_agg_df_index, 'did max volume close red'].values[0]:
-                        watchlist_msg_queue.append({'category': 'max red candle alert', 'symbol': m.symbol, 'price': m.close})
                     daily_gain = (m.close - stock_minute_agg_df.loc[minute_agg_df_index, 'prev close'].values[0]) / stock_minute_agg_df.loc[minute_agg_df_index, 'prev close'].values[0]
-                    if daily_gain >= 0.18 and stock_minute_agg_df.loc[minute_agg_df_index, '18% gain signal'].values[0] == False:
+                    if 0.18 <= daily_gain < 0.30 and stock_minute_agg_df.loc[minute_agg_df_index, '18% gain signal'].values[0] == False:
+                        util.dbg_print(str(daily_gain*100) + "% gain for " + m.symbol)
                         watchlist_msg_queue.append({'category': '18% gain alert', 'symbol': m.symbol, 'price': m.close})
                         stock_minute_agg_df.loc[minute_agg_df_index, '18% gain signal'] = True
-                    if daily_gain >= 0.30 and stock_minute_agg_df.loc[minute_agg_df_index, '30% gain signal'].values[0] == False:
+                    if 0.30 <= daily_gain < 0.50 and stock_minute_agg_df.loc[minute_agg_df_index, '30% gain signal'].values[0] == False:
+                        util.dbg_print(str(daily_gain*100) + "% gain for " + m.symbol)
                         watchlist_msg_queue.append({'category': '30% gain alert', 'symbol': m.symbol, 'price': m.close})
                         stock_minute_agg_df.loc[minute_agg_df_index, '30% gain signal'] = True
-                    if daily_gain >= 0.50 and stock_minute_agg_df.loc[minute_agg_df_index, '50% gain signal'].values[0] == False:
+                    if 0.50 <= daily_gain < 0.70 and stock_minute_agg_df.loc[minute_agg_df_index, '50% gain signal'].values[0] == False:
+                        util.dbg_print(str(daily_gain*100) + "% gain for " + m.symbol)
                         watchlist_msg_queue.append({'category': '50% gain alert', 'symbol': m.symbol, 'price': m.close})
                         stock_minute_agg_df.loc[minute_agg_df_index, '50% gain signal'] = True
-                    if daily_gain >= 0.70 and stock_minute_agg_df.loc[minute_agg_df_index, '70% gain signal'].values[0] == False:
+                    if 0.70 <= daily_gain < 1.00 and stock_minute_agg_df.loc[minute_agg_df_index, '70% gain signal'].values[0] == False:
+                        util.dbg_print(str(daily_gain*100) + "% gain for " + m.symbol)
                         watchlist_msg_queue.append({'category': '70% gain alert', 'symbol': m.symbol, 'price': m.close})
                         stock_minute_agg_df.loc[minute_agg_df_index, '70% gain signal'] = True
-                    if daily_gain >= 1.00 and stock_minute_agg_df.loc[minute_agg_df_index, '100% gain signal'].values[0] == False:
+                    if 1.00 <= daily_gain < 2.00 and stock_minute_agg_df.loc[minute_agg_df_index, '100% gain signal'].values[0] == False:
+                        util.dbg_print(str(daily_gain*100) + "% gain for " + m.symbol)
                         watchlist_msg_queue.append({'category': '100% gain alert', 'symbol': m.symbol, 'price': m.close})
                         stock_minute_agg_df.loc[minute_agg_df_index, '100% gain signal'] = True
-                    if daily_gain >= 2.00 and stock_minute_agg_df.loc[minute_agg_df_index, '200% gain signal'].values[0] == False:
+                    if 2.00 <= daily_gain and stock_minute_agg_df.loc[minute_agg_df_index, '200% gain signal'].values[0] == False:
+                        util.dbg_print(str(daily_gain*100) + "% gain for " + m.symbol)
                         watchlist_msg_queue.append({'category': '200% gain alert', 'symbol': m.symbol, 'price': m.close})
                         stock_minute_agg_df.loc[minute_agg_df_index, '200% gain signal'] = True
 
                 if stock_minute_agg_df.loc[minute_agg_df_index, '18% gain signal'].values[0]:
+                    if stock_minute_agg_df.loc[minute_agg_df_index, 'did max volume close red'].values[0]:
+                        util.dbg_print("max red candle for " + m.symbol)
+                        watchlist_msg_queue.append({'category': 'max red candle alert', 'symbol': m.symbol, 'price': m.close})
                     #if m.close < stock_minute_agg_df.loc[minute_agg_df_index, 'vwap']:
                     if not stock_minute_agg_df.loc[minute_agg_df_index, 'below vwap signal'].values[0]:
                         if m.close < m.aggregate_vwap:
+                            util.dbg_print("below vwap for " + m.symbol)
                             watchlist_msg_queue.append({'category': 'below vwap alert', 'symbol': m.symbol, 'price': m.close})
                             stock_minute_agg_df.loc[minute_agg_df_index, 'below vwap signal'] = True
                         else:
@@ -162,6 +172,7 @@ def run_crypto_socket():
     ws_crypto.subscribe("XA.*", "XT.*")
 
     ws_crypto.run(ws_handle_msg)
+    print("why did the socket end")
 
 
 def run_crypto_socket2():
@@ -187,16 +198,20 @@ def run_stock_socket():
 def main():
 
     #thread_crypto = threading.Thread(target=run_crypto_socket)
-    thread_stock = threading.Thread(target=run_stock_socket)
+    #thread_stock = threading.Thread(target=run_stock_socket)
     #thread_crypto2 = threading.Thread(target=run_crypto_socket2)
 
     #run_crypto_socket()
 
     #thread_crypto.start()
-    thread_stock.start()
+    #thread_stock.start()
     #thread_crypto2.start()
     #thread_crypto.join()
-    thread_stock.join()
+    #thread_stock.join()
     #thread_crypto2.join()
+
+    print("start")
+    run_stock_socket()
+    print("finish")
 
 main()

@@ -13,6 +13,7 @@ import time
 config_object = ConfigParser()
 config_object.read("config.ini")
 DEBUG_PRINT = config_object['main']['DEBUG_PRINT']
+LOG_PRINT = config_object['main']['LOG_PRINT']
 
 # Grab TD configuration values.
 polygon_api_key = config_object.get('main', 'POLYGON_API_KEY')
@@ -24,6 +25,9 @@ def dbg_print(val):
     if DEBUG_PRINT == 'True':
         print(val)
 
+def log_print(val):
+    if LOG_PRINT == 'True':
+        print(val)
 
 def convert_stock_info_string_to_float(info):
     """
