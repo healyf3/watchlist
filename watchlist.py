@@ -53,8 +53,6 @@ def service_enqueued_alerts():
 
     alerts_msg_queue = []
 
-#    ws_queue.put(msg)
-
 #def ws_queue_handler():
 #    msg = ws_queue.get()
 def ws_handle_msg(msg: List[WebSocketMessage]):
@@ -222,10 +220,10 @@ def hello():
 def main():
 
     #thread_crypto = threading.Thread(target=run_crypto_socket)
-    thread_stock = threading.Thread(target=run_stock_socket)
-    thread_ws_queue = threading.Thread(target=ws_queue_handler)
-    #thread_crypto2 = threading.Thread(target=run_crypto_socket2)
-    thread_hello = threading.Thread(target=hello)
+    #thread_stock = threading.Thread(target=run_stock_socket)
+    #thread_ws_queue = threading.Thread(target=ws_queue_handler)
+    ##thread_crypto2 = threading.Thread(target=run_crypto_socket2)
+    #thread_hello = threading.Thread(target=hello)
 
     #run_crypto_socket()
     #thread_crypto.start()
@@ -236,12 +234,15 @@ def main():
     #print("start")
     #run_stock_socket()
     #print("finish")
-
-    thread_stock.start()
-    #thread_hello.start()
-    thread_ws_queue.start()
-    thread_stock.join()
-    #thread_hello.join()
-    thread_ws_queue.join()
+#
+#    thread_stock.start()
+#    #thread_hello.start()
+#    thread_ws_queue.start()
+#    thread_stock.join()
+#    #thread_hello.join()
+#    thread_ws_queue.join()
+    while(1):
+        print('hello main')
+        time.sleep(1)
 
 main()
