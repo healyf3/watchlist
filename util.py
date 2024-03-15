@@ -9,11 +9,14 @@ import json
 import pandas as pd
 pd.options.mode.copy_on_write = True
 import time
+import os
 
 config_object = ConfigParser()
-config_object.read("config.ini")
-DEBUG_PRINT = config_object['main']['DEBUG_PRINT']
-LOG_PRINT = config_object['main']['LOG_PRINT']
+base_path = os.path.dirname(os.path.realpath(__file__))
+config_read_path = config_object.read(os.path.join(base_path, "config.ini"))
+config_object.read(config_read_path)
+DEBUG_PRINT = config_object["main"]['DEBUG_PRINT']
+LOG_PRINT = config_object["main"]['LOG_PRINT']
 
 # Grab TD configuration values.
 polygon_api_key = config_object.get('main', 'POLYGON_API_KEY')

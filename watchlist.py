@@ -17,9 +17,12 @@ from util import polygon_api_key
 import sinch_sms
 from queue import Queue
 import time
+import os
 
 config_object = ConfigParser()
-config_object.read("config.ini")
+base_path = os.path.dirname(os.path.realpath(__file__))
+config_read_path = config_object.read(os.path.join(base_path, "config.ini"))
+config_object.read(config_read_path)
 ALERTS_ENABLED = config_object['main']['ALERTS_ENABLED']
 
 alerts_msg_queue = []
