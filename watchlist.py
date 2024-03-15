@@ -1,3 +1,5 @@
+#!/home/ec2-user/.local/share/virtualenvs/watchlist-dO_9O89D/bin/python3
+
 import time
 
 from polygon import WebSocketClient, RESTClient
@@ -27,6 +29,9 @@ MARKET_CAP_LIMIT = 800000000
 PRICE_UPPER_BOUND = 17
 PRICE_LOWER_BOUND = 0.12
 TRADE_MINUTE_LIQUIDITY_LOWER_BOUND = 100
+
+print("STARTING WATCHLIST")
+
 stock_tickers_df = util.get_ticker_df('stocks', price_lower_bound=PRICE_LOWER_BOUND, price_upper_bound=PRICE_UPPER_BOUND, market_cap_limit=MARKET_CAP_LIMIT)
 crypto_tickers_df = util.get_ticker_df('crypto', market_cap_limit=MARKET_CAP_LIMIT)
 
