@@ -1,7 +1,7 @@
 #!/home/ec2-user/.local/share/virtualenvs/watchlist-dO_9O89D/bin/python3
 
 import time
-
+import datetime
 from polygon import WebSocketClient, RESTClient
 from polygon.websocket.models import WebSocketMessage, Market
 from typing import List, Dict
@@ -67,11 +67,20 @@ def service_enqueued_alerts():
 # def ws_queue_handler():
 
 trades_map: Dict[str, int] = {}
+trades_current_minute_map: Dict[str, int] = {}
+trades_aggregated_last_minute_map: Dict[str, int] = {}
 volume_map: Dict[str, int] = {}
 vwap_map: Dict[str, int] = {}
 max_volume_map: Dict[str, int] = {}
 price_map: Dict[str, int] = {}
 prev_close_map: Dict[str, int] = {}
+high_time_map: Dict[str, int] = {}
+high_map: Dict[str, int] = {}
+
+## Max red candle requirements:
+# 1. must be biggest volume minute of the day
+# 2. must be within 10 minutes of the high of day time
+# 3. must be atleast an 18% gainer
 
 def ws_handle_msg(msg: List[WebSocketMessage]):
 #     while True:
@@ -85,10 +94,14 @@ def ws_handle_msg(msg: List[WebSocketMessage]):
             elif m.event_type == 'AM':
                 price_map[m.symbol] = m.close
                 vwap_map[m.symbol] = m.aggregate_vwap
-                # if not (stock_minute_agg_df == m.symbol).any().any():
-                #     minute_agg_df_index = len(stock_minute_agg_df.index)
-                #     stock_minute_agg_df.loc[minute_agg_df_index] = [m.symbol, m.close, m.volume, v_times_p, m.vwap, False, 0, m.volume, m.close < m.open, float(0),
-                #                                                     False, False, False, False, False, False]
+                trades_current_minute_map[m.symbol] = trades_map[m.symbol] - trades_aggregated_last_minute_map[m.symbol]
+                trades_aggregated_last_minute_map[m.symbol] = trades_map[m.m.symbol]
+                if max_volume_map[m.symbo] < m.volume:
+                    max_volume_map[m.symbol] = m.volume
+                if high_map[m.symbol] < m.close:
+                    high_map[m.symbol] = m.close
+                    high_time_map[m.symbol] = m.end_timestamp
+
                 #     # sometimes there is no previous close due to halts or new IPO
                 #     #if len(stock_tickers_df.loc[stock_tickers_df['ticker'] == m.symbol]['prevDay'].values) == 1:
                 #     stock_minute_agg_df.loc[minute_agg_df_index, 'prev close'] = stock_tickers_df.loc[stock_tickers_df['ticker'] == m.symbol]['c'].values[0]
@@ -229,16 +242,20 @@ def run_stock_socket():
     ws_stocks.subscribe(ss_str)
     ws_stocks.run(ws_handle_msg)
 
-def hello():
-    while 1:
-        print('hello')
-        time.sleep(3)
+def market_time():
+    while True:
+        if datetime.datetime.now().hour >= 20:
+            print('close websocket for the day, exit, program, and start again tomorrow')
+            os._exit(1)
+        time.sleep(60)
+
 
 def main():
 
     #thread_crypto = threading.Thread(target=run_crypto_socket)
     thread_stock = threading.Thread(target=run_stock_socket)
-   # thread_ws_queue = threading.Thread(target=ws_queue_handler)
+    thread_market_time = threading.Thread(target=market_time)
+# thread_ws_queue = threading.Thread(target=ws_queue_handler)
     ##thread_crypto2 = threading.Thread(target=run_crypto_socket2)
     #thread_hello = threading.Thread(target=hello)
 
@@ -253,9 +270,10 @@ def main():
     #print("finish")
 
     thread_stock.start()
+    thread_market_time.start()
     #thread_hello.start()
     #thread_ws_queue.start()
-    thread_stock.join()
+    #thread_stock.join()
     #thread_hello.join()
     #thread_ws_queue.join()
 #    while(1):
