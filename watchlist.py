@@ -13,7 +13,6 @@ import threading
 import util
 from util import polygon_api_key
 import sinch_sms
-from queue import Queue
 import time
 import os
 
@@ -24,13 +23,14 @@ config_object.read(config_read_path)
 ALERTS_ENABLED = config_object['main']['ALERTS_ENABLED']
 
 alerts_msg_queue = []
-ws_queue = Queue(maxsize=10000)
 
 MARKET_CAP_LIMIT = 800000000
 PRICE_UPPER_BOUND = 17
 PRICE_LOWER_BOUND = 0.12
-TRADE_MINUTE_LIQUIDITY_LOWER_BOUND = 100
+TRADE_MINUTE_LIQUIDITY_LOWER_BOUND = 250
 DOLLAR_VOLUME_LOWER_LIMIT = 5000000
+
+BELOW_VWAP_ALERT_LIMIT = 2
 
 print("STARTING WATCHLIST")
 
@@ -46,25 +46,13 @@ crypto_minute_agg_df = pd.DataFrame(columns=['ticker', 'price', 'accumulated vol
 
 def service_enqueued_alerts():
     global alerts_msg_queue
-    if ALERTS_ENABLED == 'True':
-        for alert in alerts_msg_queue:
-            sinch_sms.send_sms_alert(alert['category'], alert['symbol'], alert['price'])
+    while(1):
+        if ALERTS_ENABLED == 'True':
+            for alert in alerts_msg_queue:
+                sinch_sms.send_sms_alert(alert['category'], alert['symbol'], alert['price'])
 
-    alerts_msg_queue = []
-
-#def ws_queue_handler():
-#    msg = ws_queue.get()
-# def ws_handle_msg(msg: List[WebSocketMessage]):
-#     ws_queue.put(msg)
-#     if ws_queue.full():
-#         pass
-#         #print('queue is full')
-#     if ws_queue.unfinished_tasks >= 900:
-#         pass
-#     #    print('unfished tasks more than 1000')
-
-
-# def ws_queue_handler():
+        alerts_msg_queue = []
+        time.sleep(5)
 
 trades_map: Dict[str, int] = {}
 trades_current_minute_map: Dict[str, int] = {}
@@ -72,10 +60,19 @@ trades_aggregated_last_minute_map: Dict[str, int] = {}
 volume_map: Dict[str, int] = {}
 vwap_map: Dict[str, int] = {}
 max_volume_map: Dict[str, int] = {}
+max_volume_red_candle_map: Dict[str, int] = {}
 price_map: Dict[str, int] = {}
-prev_close_map: Dict[str, int] = {}
+prev_close_map: Dict[str, int] = stock_tickers_df.set_index('ticker').filter(['c']).to_dict()['c']
 high_time_map: Dict[str, int] = {}
 high_map: Dict[str, int] = {}
+gain_18_p_signal_map: Dict[str, bool] = {}
+gain_30_p_signal_map: Dict[str, bool] = {}
+gain_50_p_signal_map: Dict[str, bool] = {}
+gain_70_p_signal_map: Dict[str, bool] = {}
+gain_100_p_signal_map: Dict[str, bool] = {}
+gain_200_p_signal_map: Dict[str, bool] = {}
+below_vwap_signal_map: Dict[str, bool] = {}
+below_vwap_signal_count_map: Dict[str, int] = {}
 
 ## Max red candle requirements:
 # 1. must be biggest volume minute of the day
@@ -88,91 +85,78 @@ def ws_handle_msg(msg: List[WebSocketMessage]):
         #msg = ws_queue.get()
         for m in msg:
             util.log_print(m)
+            is_max_volume = False
 
             if m.event_type == 'T':
                 trades_map[m.symbol] = trades_map.get(m.symbol, 0) + 1
             elif m.event_type == 'AM':
                 price_map[m.symbol] = m.close
                 vwap_map[m.symbol] = m.aggregate_vwap
-                trades_current_minute_map[m.symbol] = trades_map[m.symbol] - trades_aggregated_last_minute_map[m.symbol]
-                trades_aggregated_last_minute_map[m.symbol] = trades_map[m.m.symbol]
-                if max_volume_map[m.symbo] < m.volume:
+                trades_current_minute_map[m.symbol] = trades_map.get(m.symbol, 0) - trades_aggregated_last_minute_map.get(m.symbol, 0)
+                trades_aggregated_last_minute_map[m.symbol] = trades_map.get(m.symbol, 0)
+                if max_volume_map.get(m.symbol, 0) < m.volume:
                     max_volume_map[m.symbol] = m.volume
-                if high_map[m.symbol] < m.close:
+                    is_max_volume = True
+                if high_map.get(m.symbol, 0) < m.close:
                     high_map[m.symbol] = m.close
-                    high_time_map[m.symbol] = m.end_timestamp
-
-                #     # sometimes there is no previous close due to halts or new IPO
-                #     #if len(stock_tickers_df.loc[stock_tickers_df['ticker'] == m.symbol]['prevDay'].values) == 1:
-                #     stock_minute_agg_df.loc[minute_agg_df_index, 'prev close'] = stock_tickers_df.loc[stock_tickers_df['ticker'] == m.symbol]['c'].values[0]
-                #     #tickers_df.loc[tickers_df['ticker'] == 'AAPL']['prevDay'].values[0]['c']
-                #     if not (stock_trades_df == m.symbol).any().any():
-                #         stock_minute_agg_df.loc[minute_agg_df_index, 'trades in minute'] = 0
-                #     else:
-                #         trades_df_index = stock_trades_df.index[stock_trades_df['ticker'] == m.symbol].values[0]
-                #         stock_minute_agg_df.loc[minute_agg_df_index, 'trades in minute'] = stock_trades_df.loc[trades_df_index, 'trade count'] - stock_minute_agg_df.loc[minute_agg_df_index, 'trades in minute']
-                # else:
-                #     minute_agg_df_index = stock_minute_agg_df.index[stock_minute_agg_df['ticker'] == m.symbol]
-                #     if not (stock_trades_df == m.symbol).any().any():
-                #         stock_minute_agg_df.loc[minute_agg_df_index, 'trades in minute'] = 0
-                #     else:
-                #         trades_df_index = stock_trades_df.index[stock_trades_df['ticker'] == m.symbol].values[0]
-                #         stock_minute_agg_df.loc[minute_agg_df_index, 'trades in minute'] = stock_trades_df.loc[trades_df_index, 'trade count'] - stock_minute_agg_df.loc[minute_agg_df_index, 'trades in minute']
-                #
-                #     stock_minute_agg_df.loc[minute_agg_df_index, 'accumulated volume'] += m.volume
-                #     stock_minute_agg_df.loc[minute_agg_df_index, 'v*p cumsum'] += v_times_p
-                #     stock_minute_agg_df.loc[minute_agg_df_index, 'vwap'] = stock_minute_agg_df.loc[minute_agg_df_index, 'v*p cumsum'] / stock_minute_agg_df.loc[minute_agg_df_index, 'accumulated volume']
-                #     if m.volume > stock_minute_agg_df.loc[minute_agg_df_index, 'max volume'].values[0]:
-                #         stock_minute_agg_df.loc[minute_agg_df_index, 'max volume'] = m.volume
-                #         stock_minute_agg_df.loc[minute_agg_df_index, 'did max volume close red'] = m.close < m.open
-                #
-                #
-                #     if stock_minute_agg_df.loc[minute_agg_df_index, 'trades in minute'].values[0] > TRADE_MINUTE_LIQUIDITY_LOWER_BOUND:
-                #         daily_gain = (m.close - stock_minute_agg_df.loc[minute_agg_df_index, 'prev close'].values[0]) / stock_minute_agg_df.loc[minute_agg_df_index, 'prev close'].values[0]
-                #         if 0.18 <= daily_gain < 0.30 and stock_minute_agg_df.loc[minute_agg_df_index, '18% gain signal'].values[0] == False:
-                #             util.dbg_print(str(daily_gain*100) + "% gain for " + m.symbol)
-                #             alerts_msg_queue.append({'category': '18% gain alert', 'symbol': m.symbol, 'price': m.close})
-                #             stock_minute_agg_df.loc[minute_agg_df_index, '18% gain signal'] = True
-                #         if 0.30 <= daily_gain < 0.50 and stock_minute_agg_df.loc[minute_agg_df_index, '30% gain signal'].values[0] == False:
-                #             util.dbg_print(str(daily_gain*100) + "% gain for " + m.symbol)
-                #             alerts_msg_queue.append({'category': '30% gain alert', 'symbol': m.symbol, 'price': m.close})
-                #             stock_minute_agg_df.loc[minute_agg_df_index, '30% gain signal'] = True
-                #         if 0.50 <= daily_gain < 0.70 and stock_minute_agg_df.loc[minute_agg_df_index, '50% gain signal'].values[0] == False:
-                #             util.dbg_print(str(daily_gain*100) + "% gain for " + m.symbol)
-                #             alerts_msg_queue.append({'category': '50% gain alert', 'symbol': m.symbol, 'price': m.close})
-                #             stock_minute_agg_df.loc[minute_agg_df_index, '50% gain signal'] = True
-                #         if 0.70 <= daily_gain < 1.00 and stock_minute_agg_df.loc[minute_agg_df_index, '70% gain signal'].values[0] == False:
-                #             util.dbg_print(str(daily_gain*100) + "% gain for " + m.symbol)
-                #             alerts_msg_queue.append({'category': '70% gain alert', 'symbol': m.symbol, 'price': m.close})
-                #             stock_minute_agg_df.loc[minute_agg_df_index, '70% gain signal'] = True
-                #         if 1.00 <= daily_gain < 2.00 and stock_minute_agg_df.loc[minute_agg_df_index, '100% gain signal'].values[0] == False:
-                #             util.dbg_print(str(daily_gain*100) + "% gain for " + m.symbol)
-                #             alerts_msg_queue.append({'category': '100% gain alert', 'symbol': m.symbol, 'price': m.close})
-                #             stock_minute_agg_df.loc[minute_agg_df_index, '100% gain signal'] = True
-                #         if 2.00 <= daily_gain and stock_minute_agg_df.loc[minute_agg_df_index, '200% gain signal'].values[0] == False:
-                #             util.dbg_print(str(daily_gain*100) + "% gain for " + m.symbol)
-                #             alerts_msg_queue.append({'category': '200% gain alert', 'symbol': m.symbol, 'price': m.close})
-                #             stock_minute_agg_df.loc[minute_agg_df_index, '200% gain signal'] = True
-                #
-                #     if stock_minute_agg_df.loc[minute_agg_df_index, '18% gain signal'].values[0]:
-                #         if stock_minute_agg_df.loc[minute_agg_df_index, 'did max volume close red'].values[0]:
-                #             util.dbg_print("max red candle for " + m.symbol)
-                #             alerts_msg_queue.append({'category': 'max red candle alert', 'symbol': m.symbol, 'price': m.close})
-                #         #if m.close < stock_minute_agg_df.loc[minute_agg_df_index, 'vwap']:
-                #         if not stock_minute_agg_df.loc[minute_agg_df_index, 'below vwap signal'].values[0]:
-                #             if m.close < m.aggregate_vwap:
-                #                 util.dbg_print("below vwap for " + m.symbol)
-                #                 alerts_msg_queue.append({'category': 'below vwap alert', 'symbol': m.symbol, 'price': m.close})
-                #                 stock_minute_agg_df.loc[minute_agg_df_index, 'below vwap signal'] = True
-                #             else:
-                #                 stock_minute_agg_df.loc[minute_agg_df_index, 'below vwap signal'] = False
+                    high_time_map[m.symbol] = datetime.datetime.fromtimestamp(m.end_timestamp/1000)
 
 
-                       # stock_minute_agg_df.loc[minute_agg_df_index, '30% gain signal'] == True || \
-                       # stock_minute_agg_df.loc[minute_agg_df_index, '50% gain signal'] == True || \
-                       # stock_minute_agg_df.loc[minute_agg_df_index, '70% gain signal'] == True || \
-                       # stock_minute_agg_df.loc[minute_agg_df_index, '100% gain signal'] == True || \
-                       # stock_minute_agg_df.loc[minute_agg_df_index, '200% gain signal'] == True:
+                if trades_current_minute_map[m.symbol] > TRADE_MINUTE_LIQUIDITY_LOWER_BOUND:
+                    daily_gain = (m.close - prev_close_map[m.symbol]) / prev_close_map[m.symbol]
+                    if 0.18 <= daily_gain < 0.30 and gain_18_p_signal_map.get(m.symbol, 0) != True:
+                        util.dbg_print(str(daily_gain*100) + "% gain for " + m.symbol)
+                        alerts_msg_queue.append({'category': '18% gain alert', 'symbol': m.symbol, 'price': m.close})
+                        gain_18_p_signal_map[m.symbol] = True
+                    if 0.30 <= daily_gain < 0.50 and gain_30_p_signal_map.get(m.symbol, 0) != True:
+                        util.dbg_print(str(daily_gain*100) + "% gain for " + m.symbol)
+                        alerts_msg_queue.append({'category': '30% gain alert', 'symbol': m.symbol, 'price': m.close})
+                        gain_18_p_signal_map[m.symbol] = True
+                        gain_30_p_signal_map[m.symbol] = True
+                    if 0.50 <= daily_gain < 0.70 and gain_50_p_signal_map.get(m.symbol, 0) != True:
+                        util.dbg_print(str(daily_gain*100) + "% gain for " + m.symbol)
+                        alerts_msg_queue.append({'category': '50% gain alert', 'symbol': m.symbol, 'price': m.close})
+                        gain_18_p_signal_map[m.symbol] = True
+                        gain_30_p_signal_map[m.symbol] = True
+                        gain_50_p_signal_map[m.symbol] = True
+                    if 0.70 <= daily_gain < 1.00 and gain_70_p_signal_map.get(m.symbol, 0) != True:
+                        util.dbg_print(str(daily_gain*100) + "% gain for " + m.symbol)
+                        alerts_msg_queue.append({'category': '70% gain alert', 'symbol': m.symbol, 'price': m.close})
+                        gain_18_p_signal_map[m.symbol] = True
+                        gain_30_p_signal_map[m.symbol] = True
+                        gain_50_p_signal_map[m.symbol] = True
+                        gain_70_p_signal_map[m.symbol] = True
+                    if 1.00 <= daily_gain < 2.00 and gain_100_p_signal_map.get(m.symbol, 0) != True:
+                        util.dbg_print(str(daily_gain*100) + "% gain for " + m.symbol)
+                        alerts_msg_queue.append({'category': '100% gain alert', 'symbol': m.symbol, 'price': m.close})
+                        gain_18_p_signal_map[m.symbol] = True
+                        gain_30_p_signal_map[m.symbol] = True
+                        gain_50_p_signal_map[m.symbol] = True
+                        gain_70_p_signal_map[m.symbol] = True
+                        gain_100_p_signal_map[m.symbol] = True
+                    if 2.00 <= daily_gain and gain_200_p_signal_map.get(m.symbol, 0) != True:
+                        util.dbg_print(str(daily_gain*100) + "% gain for " + m.symbol)
+                        alerts_msg_queue.append({'category': '200% gain alert', 'symbol': m.symbol, 'price': m.close})
+                        gain_18_p_signal_map[m.symbol] = True
+                        gain_30_p_signal_map[m.symbol] = True
+                        gain_50_p_signal_map[m.symbol] = True
+                        gain_70_p_signal_map[m.symbol] = True
+                        gain_100_p_signal_map[m.symbol] = True
+                        gain_200_p_signal_map[m.symbol] = True
+
+                    if gain_18_p_signal_map.get(m.symbol, 0) == True:
+                        if m.close < m.open and is_max_volume and ((datetime.datetime.now() - high_time_map[m.symbol]).seconds < 60*10):
+                            util.dbg_print("max red candle for " + m.symbol)
+                            alerts_msg_queue.append({'category': 'max red candle alert', 'symbol': m.symbol, 'price': m.close})
+                        if m.close < m.aggregate_vwap:
+                            if below_vwap_signal_map.get(m.symbol, 0) == False and (below_vwap_signal_count_map.get(m.symbol, 0) >= BELOW_VWAP_ALERT_LIMIT):
+                                util.dbg_print("below vwap for " + m.symbol)
+                                alerts_msg_queue.append({'category': 'below vwap alert', 'symbol': m.symbol, 'price': m.close})
+                                below_vwap_signal_map[m.symbol] = False
+                                below_vwap_signal_count_map[m.symbol] += below_vwap_signal_count_map.get(m.symbol, 0) + 1
+                        else:
+                            below_vwap_signal_map[m.symbol] = False
+
 
             elif m.event_type == 'XT':
                 if not (crypto_trades_df == m.pair).any().any():
@@ -209,9 +193,6 @@ def ws_handle_msg(msg: List[WebSocketMessage]):
                 print("event is " + m.event_type)
 
         #ws_queue.task_done()
-
-        #service_enqueued_alerts()
-
 
 
 def run_crypto_socket():
@@ -255,7 +236,8 @@ def main():
     #thread_crypto = threading.Thread(target=run_crypto_socket)
     thread_stock = threading.Thread(target=run_stock_socket)
     thread_market_time = threading.Thread(target=market_time)
-# thread_ws_queue = threading.Thread(target=ws_queue_handler)
+    thread_service_enqueued_alerts = threading.Thread(target=service_enqueued_alerts)
+    # thread_ws_queue = threading.Thread(target=ws_queue_handler)
     ##thread_crypto2 = threading.Thread(target=run_crypto_socket2)
     #thread_hello = threading.Thread(target=hello)
 
@@ -271,12 +253,17 @@ def main():
 
     thread_stock.start()
     thread_market_time.start()
+    thread_service_enqueued_alerts.start()
+
+    thread_market_time.join()
+    #thread_market_time.join()
     #thread_hello.start()
     #thread_ws_queue.start()
     #thread_stock.join()
     #thread_hello.join()
     #thread_ws_queue.join()
-#    while(1):
+    #while(1):
+    #    pass
 #        print('hello main')
 #        time.sleep(1)
 

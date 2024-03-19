@@ -1,5 +1,14 @@
 #!/home/ec2-user/.local/share/virtualenvs/watchlist-dO_9O89D/bin/python3
 from sinch import Client
+from sinch_numbers import numbers
+from configparser import ConfigParser
+import os
+
+config_object = ConfigParser()
+base_path = os.path.dirname(os.path.realpath(__file__))
+config_read_path = config_object.read(os.path.join(base_path, "config.ini"))
+config_object.read(config_read_path)
+DEBUG_ALERTS = config_object['main']['DEBUG_ALERTS']
 
 sinch_client = Client(
     key_id="1ec91efb-a6cd-4383-ad90-7c9c58e891bf",
@@ -15,14 +24,16 @@ sinch_client = Client(
 #         delivery_report="none"
 #     )
 
+sinch_numbers_list = list(numbers.values())
+if DEBUG_ALERTS == 'True':
+    sinch_numbers_list = [numbers['healy']]
 def send_sms_alert(alert_category, ticker, price, fundamentals=None):
     send_batch_response = sinch_client.sms.batches.send(
         body="healy's alert:" "\n" + alert_category + "\n" + ticker + "\n" + str(price),
-        to=["+19014830859"],
+        to=sinch_numbers_list,
         from_="+12085812142",
         delivery_report="none"
     )
-
 
 
 #import requests
