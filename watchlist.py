@@ -78,6 +78,7 @@ gain_100_p_signal_map: Dict[str, bool] = {}
 gain_200_p_signal_map: Dict[str, bool] = {}
 below_vwap_signal_map: Dict[str, bool] = {}
 below_vwap_signal_count_map: Dict[str, int] = {}
+todays_open: Dict[str, bool] = {}
 
 ## Max red candle requirements:
 # 1. must be biggest volume minute of the day
@@ -95,6 +96,8 @@ def ws_handle_msg(msg: List[WebSocketMessage]):
             if m.event_type == 'T':
                 trades_map[m.symbol] = trades_map.get(m.symbol, 0) + 1
             elif m.event_type == 'AM':
+                if todays_open.get(m.symbol, 0) == 0:
+                    todays_open[m.symbol] = m.open
                 price_map[m.symbol] = m.close
                 vwap_map[m.symbol] = m.aggregate_vwap
                 trades_current_minute_map[m.symbol] = trades_map.get(m.symbol, 0) - trades_aggregated_last_minute_map.get(m.symbol, 0)
@@ -149,8 +152,9 @@ def ws_handle_msg(msg: List[WebSocketMessage]):
                         gain_100_p_signal_map[m.symbol] = True
                         gain_200_p_signal_map[m.symbol] = True
 
-                    if gain_18_p_signal_map.get(m.symbol, 0) == True:
-                        if m.close < m.open and is_max_volume and ((datetime.datetime.now() - high_time_map[m.symbol]).seconds < 60*10):
+                    if gain_18_p_signal_map.get(m.symbol, 0) == True or gain_30_p_signal_map.get(m.symbol, 0) == True  or gain_50_p_signal_map.get(m.symbol, 0) == True or \
+                        gain_70_p_signal_map.get(m.symbol, 0) == True or gain_100_p_signal_map.get(m.symbol, 0) == True or gain_200_p_signal_map.get(m.symbol, 0) == True:
+                        if m.close < m.open and is_max_volume and ((datetime.datetime.now() - high_time_map[m.symbol]).seconds < 60*10) and (((m.close - todays_open[m.symbol])/todays_open[m.symbol]) >= 0.18) :
                             util.dbg_print("max red candle for " + m.symbol)
                             alerts_msg_queue.append({'category': 'max red candle alert', 'symbol': m.symbol, 'price': m.close})
                         if m.close < m.aggregate_vwap:
@@ -158,7 +162,7 @@ def ws_handle_msg(msg: List[WebSocketMessage]):
                                 util.dbg_print("below vwap for " + m.symbol)
                                 alerts_msg_queue.append({'category': 'below vwap alert', 'symbol': m.symbol, 'price': m.close})
                                 below_vwap_signal_map[m.symbol] = False
-                                below_vwap_signal_count_map[m.symbol] += below_vwap_signal_count_map.get(m.symbol, 0) + 1
+                                below_vwap_signal_count_map[m.symbol] = below_vwap_signal_count_map.get(m.symbol, 0) + 1
                         else:
                             below_vwap_signal_map[m.symbol] = False
 
