@@ -161,7 +161,7 @@ def ws_handle_msg(msg: List[WebSocketMessage]):
                             if below_vwap_signal_map.get(m.symbol, 0) == False and (below_vwap_signal_count_map.get(m.symbol, 0) <= BELOW_VWAP_ALERT_LIMIT):
                                 util.dbg_print("below vwap for " + m.symbol)
                                 alerts_msg_queue.append({'category': 'below vwap alert', 'symbol': m.symbol, 'price': m.close})
-                                below_vwap_signal_map[m.symbol] = False
+                                below_vwap_signal_map[m.symbol] = True
                                 below_vwap_signal_count_map[m.symbol] = below_vwap_signal_count_map.get(m.symbol, 0) + 1
                         else:
                             below_vwap_signal_map[m.symbol] = False
