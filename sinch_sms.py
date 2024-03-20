@@ -24,9 +24,17 @@ sinch_client = Client(
 #         delivery_report="none"
 #     )
 
+dbg_numbers = {
+    'healy': '+19014830859',
+    'healy1': '+19014830859',
+    'healy2': '+19014830859',
+    'healy3': '+19014830859',
+    'healy4': '+19014830859',
+    'healy5': '+19014830859',
+}
 sinch_numbers_list = list(numbers.values())
 if DEBUG_ALERTS == 'True':
-    sinch_numbers_list = [numbers['healy']]
+    sinch_numbers_list = list(dbg_numbers.values())
 def send_sms_alert(alert_category, ticker, price, fundamentals=None):
     send_batch_response = sinch_client.sms.batches.send(
         body="healy's alert:" "\n" + alert_category + "\n" + ticker + "\n" + str(price),
@@ -35,6 +43,9 @@ def send_sms_alert(alert_category, ticker, price, fundamentals=None):
         delivery_report="none"
     )
 
+# Test
+if DEBUG_ALERTS == 'True':
+    send_sms_alert('test', 'hello', 'lfg my friends')
 
 #import requests
 #
