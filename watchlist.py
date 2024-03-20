@@ -15,6 +15,7 @@ from util import polygon_api_key
 import sinch_sms
 import time
 import os
+import sys
 
 config_object = ConfigParser()
 base_path = os.path.dirname(os.path.realpath(__file__))
@@ -49,7 +50,11 @@ def service_enqueued_alerts():
     while(1):
         if ALERTS_ENABLED == 'True':
             for alert in alerts_msg_queue:
-                sinch_sms.send_sms_alert(alert['category'], alert['symbol'], alert['price'])
+                try:
+                    sinch_sms.send_sms_alert(alert['category'], alert['symbol'], alert['price'])
+                except:
+                    e = sys.exc_info()[0]
+                    print('sms error occurred: ' + str(e))
 
         alerts_msg_queue = []
         time.sleep(5)
@@ -149,7 +154,7 @@ def ws_handle_msg(msg: List[WebSocketMessage]):
                             util.dbg_print("max red candle for " + m.symbol)
                             alerts_msg_queue.append({'category': 'max red candle alert', 'symbol': m.symbol, 'price': m.close})
                         if m.close < m.aggregate_vwap:
-                            if below_vwap_signal_map.get(m.symbol, 0) == False and (below_vwap_signal_count_map.get(m.symbol, 0) >= BELOW_VWAP_ALERT_LIMIT):
+                            if below_vwap_signal_map.get(m.symbol, 0) == False and (below_vwap_signal_count_map.get(m.symbol, 0) <= BELOW_VWAP_ALERT_LIMIT):
                                 util.dbg_print("below vwap for " + m.symbol)
                                 alerts_msg_queue.append({'category': 'below vwap alert', 'symbol': m.symbol, 'price': m.close})
                                 below_vwap_signal_map[m.symbol] = False
@@ -226,7 +231,7 @@ def run_stock_socket():
 def market_time():
     while True:
         if datetime.datetime.now().hour >= 20:
-            print('close websocket for the day, exit, program, and start again tomorrow')
+            print('close websocket for the day, exit program, and start again tomorrow')
             os._exit(1)
         time.sleep(60)
 
