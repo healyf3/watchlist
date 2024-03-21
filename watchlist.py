@@ -241,7 +241,7 @@ def market_time():
         time.sleep(60)
 
 
-def main():
+def watchlist():
 
     #thread_crypto = threading.Thread(target=run_crypto_socket)
     thread_stock = threading.Thread(target=run_stock_socket)
@@ -278,4 +278,4 @@ def main():
 #        time.sleep(1)
 
 if __name__ == 'main':
-    main()
+    watchlist()
