@@ -3,6 +3,7 @@ from sinch import Client
 from sinch_numbers import numbers
 from configparser import ConfigParser
 import os
+import sys
 
 config_object = ConfigParser()
 base_path = os.path.dirname(os.path.realpath(__file__))
@@ -46,6 +47,7 @@ def send_sms_alert(alert_category, ticker, price, fundamentals=None):
 # Test
 if DEBUG_ALERTS == 'True':
     send_sms_alert('test', 'hello', 'lfg my friends')
+    print('send dbg alert')
 
 #import requests
 #

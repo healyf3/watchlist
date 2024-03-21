@@ -1,5 +1,6 @@
 #!/home/ec2-user/.local/share/virtualenvs/watchlist-dO_9O89D/bin/python3
 
+import sys
 import time
 import datetime
 from polygon import WebSocketClient, RESTClient
@@ -15,7 +16,7 @@ from util import polygon_api_key
 import sinch_sms
 import time
 import os
-import sys
+
 
 config_object = ConfigParser()
 base_path = os.path.dirname(os.path.realpath(__file__))
@@ -276,4 +277,5 @@ def main():
 #        print('hello main')
 #        time.sleep(1)
 
-main()
+if __name__ == 'main':
+    main()
