@@ -235,7 +235,7 @@ def run_stock_socket():
 
 def market_time():
     while True:
-        if datetime.datetime.now().hour >= 20:
+        if datetime.datetime.now().hour == 0: # UTC time
             print('close websocket for the day, exit program, and start again tomorrow')
             os._exit(1)
         time.sleep(60)
