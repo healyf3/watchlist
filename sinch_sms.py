@@ -46,7 +46,7 @@ def send_sms_alert(alert_category, ticker, price, fundamentals=None):
 
 # Test
 if DEBUG_ALERTS == 'True':
-    send_sms_alert('test', 'hello', 'lfg my friends')
+    #send_sms_alert('test', 'hello', 'lfg my friends')
     print('send dbg alert')
 
 #import requests
